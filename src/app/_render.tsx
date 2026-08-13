@@ -6,22 +6,28 @@ import { SiteRoot } from '@/components/site/site-root';
  * Every public route is the same render with a different page key, so the
  * fetch-resolve-render sequence lives here once.
  *
- * `?lang=` selects the translation overlay ON THE SERVER, so a Tamil page is
- * Tamil in the HTML rather than after hydration. That is the difference
- * between a translated site and a translated-looking one.
+ * `host` and `lang` arrive as route params (middleware puts them there) rather
+ * than from `headers()`/`searchParams`. Reading either of those marks the route
+ * dynamic, and a dynamic route is never stored in the route cache — which is
+ * what made every visitor pay a full server render.
+ *
+ * The page is still fully server-rendered; it is just rendered once per
+ * (tenant, language, path) and reused until it revalidates.
  */
 export async function renderPage({
   page,
-  searchParams,
+  host,
+  lang,
 }: {
   page: string;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  host: string;
+  lang?: string;
 }) {
-  const params = (await searchParams) || {};
-  const langParam = params.lang;
-  const lang = Array.isArray(langParam) ? langParam[0] : langParam;
+  // `_` is middleware's placeholder for "this tenant's default language" — the
+  // default is per-tenant and middleware can't look it up without a network call.
+  const requested = lang && lang !== '_' ? lang : undefined;
 
-  const bundle = await loadSite(lang);
+  const bundle = await loadSite(decodeURIComponent(host), requested);
 
   // No tenant for this host, or the admin hasn't published yet. A 404 is the
   // honest answer — never fall back to some other company's content.
@@ -34,6 +40,7 @@ export async function renderPage({
   return <SiteRoot bundle={bundle} initialPage={page} language={String(active)} />;
 }
 
-export type PageProps = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+export type SiteRouteProps = {
+  params: Promise<{ host: string; lang: string }>;
 };
+

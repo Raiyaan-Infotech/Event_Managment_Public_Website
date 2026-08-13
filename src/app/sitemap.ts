@@ -10,7 +10,7 @@ const CORE_PATHS = ['', '/features', '/templates', '/pricing', '/how-it-works', 
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const host = await currentHost();
-  const bundle = await loadSite();
+  const bundle = await loadSite(host);
   if (!bundle || bundle.site.status !== 'published') return [];
 
   const origin = `https://${host}`;

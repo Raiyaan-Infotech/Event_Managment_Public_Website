@@ -120,11 +120,17 @@ export async function resolveSite(host?: string): Promise<SiteIdentity> {
 
 /**
  * Everything needed to render any page of this tenant's site, in one request.
+ *
+ * `host` is passed in rather than read from `headers()` on purpose. Calling
+ * `headers()` marks the route dynamic, which opts it out of Next's route cache
+ * entirely — every visitor then pays a full server render (measured: ~1.1s TTFB,
+ * `X-Vercel-Cache: MISS` on every hit). The host reaches the page as a route
+ * param via middleware instead, so the rendered HTML is cacheable at the edge.
+ *
  * `lang` ships the translation overlay for that language; omit it for the
  * site's default language and none is sent.
  */
-export async function loadSite(lang?: string): Promise<SiteBundle | null> {
-  const host = await currentHost();
+export async function loadSite(host: string, lang?: string): Promise<SiteBundle | null> {
   if (!host) return null;
 
   const params = new URLSearchParams({ host });

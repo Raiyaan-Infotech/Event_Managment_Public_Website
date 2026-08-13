@@ -8,7 +8,7 @@ import { currentHost, loadSite } from '@/lib/site';
  */
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const host = await currentHost();
-  const bundle = await loadSite();
+  const bundle = await loadSite(host);
 
   if (!bundle || bundle.site.status !== 'published') {
     return { rules: [{ userAgent: '*', disallow: '/' }] };

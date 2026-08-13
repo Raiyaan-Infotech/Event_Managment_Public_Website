@@ -18,7 +18,7 @@
  */
 
 import * as React from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { getWebsiteBuilderTranslation } from '@/locales/website-builder';
 import { createTranslator, type Translator } from './sections/preview-translate';
 
@@ -62,7 +62,6 @@ export function WebsiteLanguageProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [isPending, startTransition] = React.useTransition();
 
   const defaultCode = React.useMemo(
@@ -91,7 +90,11 @@ export function WebsiteLanguageProvider({
       // A navigation, not local state: the server has to re-render with the
       // other overlay so the translated copy is in the HTML, and so the URL
       // stays shareable in that language.
-      const params = new URLSearchParams(searchParams?.toString() || '');
+      //
+      // Read from `window` rather than `useSearchParams()` — that hook opts its
+      // whole subtree out of static rendering unless it sits behind a Suspense
+      // boundary, and this component wraps the entire site.
+      const params = new URLSearchParams(window.location.search);
       if (next === defaultCode) params.delete('lang');
       else params.set('lang', next);
       const query = params.toString();
@@ -100,7 +103,7 @@ export function WebsiteLanguageProvider({
         router.push(query ? `${pathname}?${query}` : pathname);
       });
     },
-    [defaultCode, language, pathname, router, searchParams]
+    [defaultCode, language, pathname, router]
   );
 
   const translator = React.useMemo(

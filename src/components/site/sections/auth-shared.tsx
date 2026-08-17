@@ -23,6 +23,7 @@
 
 import * as React from 'react';
 import { Check, ChevronDown, Send, ShieldCheck, ArrowRight, ArrowLeft, X, Lock } from 'lucide-react';
+import { useWebsiteLanguage } from '../website-language-provider';
 
 // Success/verified state. Semantic, not the tenant's brand colour — a failed
 // state would be red on every tenant too.
@@ -226,6 +227,7 @@ export const PASSWORD_RULES: PasswordRule[] = [
 ];
 
 export function PasswordRules({ password, rules = PASSWORD_RULES }: { password: string; rules?: PasswordRule[] }) {
+    const { t } = useWebsiteLanguage();
     return (
         <ul className="flex flex-col gap-1">
             {rules.map((rule) => {
@@ -236,7 +238,9 @@ export function PasswordRules({ password, rules = PASSWORD_RULES }: { password: 
                             className="h-3.5 w-3.5 shrink-0"
                             style={{ color: passed ? SUCCESS_COLOR : '#CBD5E1' }}
                         />
-                        <span style={{ color: passed ? SUCCESS_COLOR : '#94A3B8' }}>{rule.label}</span>
+                        <span style={{ color: passed ? SUCCESS_COLOR : '#94A3B8' }}>
+                            {t(`auth.password_rule.${rule.key}`, rule.label)}
+                        </span>
                     </li>
                 );
             })}
@@ -280,6 +284,7 @@ export function AuthFlowDialog({
     companyName: string;
     onClose: () => void;
 }) {
+    const { t } = useWebsiteLanguage();
     const tint = tintOf(primary);
     // Facebook has no account chooser in the reference, so it starts a step later.
     const firstStep: FlowStep = provider === 'google' ? 'account' : 'validating';
@@ -343,7 +348,7 @@ export function AuthFlowDialog({
         <div className="mt-5 flex items-start justify-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: tint(8) }}>
             <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
             <p className="text-[11px] leading-4 text-slate-500">
-                Your number is safe with us. We never share your details.
+                {t('auth.number_safe', 'Your number is safe with us. We never share your details.')}
             </p>
         </div>
     );
@@ -378,11 +383,11 @@ export function AuthFlowDialog({
                     <div className="min-w-0">
                         <div className="flex items-center gap-2 border-b border-slate-200 pb-3">
                             <ProviderMark className="h-4 w-4" />
-                            <span className="text-[13px] font-medium text-slate-600">Sign in with {providerLabel}</span>
+                            <span className="text-[13px] font-medium text-slate-600">{t('auth.sign_in_with', 'Sign in with {provider}', { provider: providerLabel })}</span>
                         </div>
-                        <h3 className="mt-4 text-[19px] font-bold text-slate-900">Choose an account</h3>
+                        <h3 className="mt-4 text-[19px] font-bold text-slate-900">{t('auth.choose_account', 'Choose an account')}</h3>
                         <p className="text-[12.5px] text-slate-500">
-                            to continue to <span className="font-semibold" style={{ color: primary }}>{companyName}</span>
+                            {t('auth.to_continue_to', 'to continue to')} <span className="font-semibold" style={{ color: primary }}>{companyName}</span>
                         </p>
 
                         <ul className="mt-4 flex flex-col">
@@ -418,14 +423,13 @@ export function AuthFlowDialog({
                                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400">
                                         <ArrowRight className="h-4 w-4" />
                                     </span>
-                                    <span className="text-[13px] font-medium text-slate-700">Use another account</span>
+                                    <span className="text-[13px] font-medium text-slate-700">{t('auth.use_another_account', 'Use another account')}</span>
                                 </button>
                             </li>
                         </ul>
 
                         <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] leading-4 text-slate-400">
-                            To continue, {providerLabel} will share your name, email address, language preference and
-                            profile picture with {companyName}.
+                            {t('auth.provider_share_notice', 'To continue, {provider} will share your name, email address, language preference and profile picture with {company}.', { provider: providerLabel, company: companyName })}
                         </p>
                     </div>
                 ) : null}
@@ -439,14 +443,14 @@ export function AuthFlowDialog({
                         >
                             <ProviderMark className="h-9 w-9" />
                         </span>
-                        <p className="mt-5 text-[15px] font-bold text-slate-800">Verifying your account</p>
+                        <p className="mt-5 text-[15px] font-bold text-slate-800">{t('auth.verifying_account', 'Verifying your account')}</p>
                         <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
-                            Please wait while we validate your {providerLabel} credentials…
+                            {t('auth.validating_credentials', 'Please wait while we validate your {provider} credentials…', { provider: providerLabel })}
                         </p>
                         <div className="mt-5 flex items-start gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: tint(8) }}>
                             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: primary }} />
                             <p className="text-[11px] leading-4 text-slate-500">
-                                This may take a few seconds. Please do not close this window.
+                                {t('auth.may_take_seconds', 'This may take a few seconds. Please do not close this window.')}
                             </p>
                         </div>
                     </div>
@@ -455,24 +459,25 @@ export function AuthFlowDialog({
                 {/* ── Step: mobile number ─────────────────────────────────── */}
                 {step === 'mobile' ? (
                     <div className="min-w-0 text-center">
-                        <h3 className="text-[19px] font-black text-slate-900">Almost there!</h3>
+                        <h3 className="text-[19px] font-black text-slate-900">{t('auth.almost_there', 'Almost there!')}</h3>
                         <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
-                            Please <span className="font-semibold" style={{ color: primary }}>enter your mobile number</span> to
-                            secure your account.
+                            {t('auth.mobile_prompt_prefix', 'Please')}{' '}
+                            <span className="font-semibold" style={{ color: primary }}>{t('auth.mobile_prompt_accent', 'enter your mobile number')}</span>{' '}
+                            {t('auth.mobile_prompt_suffix', 'to secure your account.')}
                         </p>
 
                         <div className="mt-5 text-left">
                             <MobileNumberField
                                 id="flow-mobile"
                                 primary={primary}
-                                label="Mobile Number"
+                                label={t('auth.mobile_label', 'Mobile Number')}
                                 value={mobile}
                                 onChange={setMobile}
                                 dialCode={dialCode}
                                 onDialCodeChange={setDialCode}
                             />
                             <p className="mt-2 text-[11px] text-slate-400">
-                                We will send you an OTP to verify your mobile number.
+                                {t('auth.otp_notice', 'We will send you an OTP to verify your mobile number.')}
                             </p>
                         </div>
 
@@ -488,7 +493,7 @@ export function AuthFlowDialog({
                             style={{ backgroundColor: primary }}
                         >
                             <Send className="h-4 w-4" />
-                            Send OTP
+                            {t('auth.send_otp', 'Send OTP')}
                         </button>
                         {reassurance}
                     </div>
@@ -497,9 +502,9 @@ export function AuthFlowDialog({
                 {/* ── Step: OTP ───────────────────────────────────────────── */}
                 {step === 'otp' ? (
                     <div className="min-w-0 text-center">
-                        <h3 className="text-[19px] font-black text-slate-900">Verify OTP</h3>
+                        <h3 className="text-[19px] font-black text-slate-900">{t('auth.verify_otp', 'Verify OTP')}</h3>
                         <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
-                            We&apos;ve sent a 6-digit OTP to{' '}
+                            {t('auth.otp_sent_to', "We've sent a 6-digit OTP to")}{' '}
                             <span className="font-semibold text-slate-700">{maskedNumber}</span>{' '}
                             <button
                                 type="button"
@@ -507,18 +512,18 @@ export function AuthFlowDialog({
                                 className="font-semibold hover:underline"
                                 style={{ color: primary }}
                             >
-                                Edit
+                                {t('auth.edit', 'Edit')}
                             </button>
                         </p>
 
-                        <p className="mb-2 mt-5 text-left text-[12.5px] font-bold text-slate-700">Enter OTP</p>
+                        <p className="mb-2 mt-5 text-left text-[12.5px] font-bold text-slate-700">{t('auth.enter_otp', 'Enter OTP')}</p>
                         <OtpInput primary={primary} value={otp} onChange={setOtp} />
 
                         <p className="mt-4 text-[12px] text-slate-500">
-                            Didn&apos;t receive the code?{' '}
+                            {t('auth.didnt_receive', "Didn't receive the code?")}{' '}
                             {secondsLeft > 0 ? (
                                 <span className="font-semibold text-slate-700">
-                                    Resend OTP in 00:{String(secondsLeft).padStart(2, '0')}
+                                    {t('auth.resend_in', 'Resend OTP in')} 00:{String(secondsLeft).padStart(2, '0')}
                                 </span>
                             ) : (
                                 <button
@@ -527,7 +532,7 @@ export function AuthFlowDialog({
                                     className="font-semibold hover:underline"
                                     style={{ color: primary }}
                                 >
-                                    Resend OTP
+                                    {t('auth.resend_otp', 'Resend OTP')}
                                 </button>
                             )}
                         </p>
@@ -540,7 +545,7 @@ export function AuthFlowDialog({
                             style={{ backgroundColor: primary }}
                         >
                             <ShieldCheck className="h-4 w-4" />
-                            Verify &amp; Continue
+                            {t('auth.verify_continue', 'Verify & Continue')}
                         </button>
 
                         <button
@@ -549,7 +554,7 @@ export function AuthFlowDialog({
                             className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-slate-500 transition hover:text-slate-700"
                         >
                             <ArrowLeft className="h-3.5 w-3.5" />
-                            Back
+                            {t('auth.back', 'Back')}
                         </button>
                         {reassurance}
                     </div>
@@ -565,10 +570,10 @@ export function AuthFlowDialog({
                             <Check className="h-8 w-8 text-white" strokeWidth={3} />
                         </span>
                         <h3 className="mt-4 text-[19px] font-black text-slate-900">
-                            Welcome, {firstName}! <span aria-hidden="true">🎉</span>
+                            {t('auth.welcome_name', 'Welcome, {name}!', { name: firstName })} <span aria-hidden="true">🎉</span>
                         </h3>
                         <p className="mt-1 text-[12.5px] leading-5 text-slate-500">
-                            You have successfully logged in to your account.
+                            {t('auth.login_success', 'You have successfully logged in to your account.')}
                         </p>
 
                         {/* Inert: there is no dashboard route on the public site yet. */}
@@ -578,13 +583,13 @@ export function AuthFlowDialog({
                             className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99]"
                             style={{ backgroundColor: primary }}
                         >
-                            Go to Dashboard
+                            {t('auth.go_to_dashboard', 'Go to Dashboard')}
                             <ArrowRight className="h-4 w-4" />
                         </button>
 
                         <div className="my-4 flex items-center gap-3">
                             <span className="h-px flex-1 bg-slate-200" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">OR</span>
+                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">{t('auth.or', 'OR')}</span>
                             <span className="h-px flex-1 bg-slate-200" />
                         </div>
 
@@ -593,13 +598,13 @@ export function AuthFlowDialog({
                             onClick={onClose}
                             className="flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
                         >
-                            Explore My Events
+                            {t('auth.explore_events', 'Explore My Events')}
                         </button>
 
                         <div className="mt-4 rounded-lg p-3 text-left" style={{ backgroundColor: tint(8) }}>
-                            <p className="text-[12px] font-bold text-slate-800">Start creating amazing events</p>
+                            <p className="text-[12px] font-bold text-slate-800">{t('auth.start_creating', 'Start creating amazing events')}</p>
                             <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-                                Design, manage guests and create unforgettable experiences.
+                                {t('auth.start_creating_subtitle', 'Design, manage guests and create unforgettable experiences.')}
                             </p>
                         </div>
                     </div>

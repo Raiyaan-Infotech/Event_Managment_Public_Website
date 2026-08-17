@@ -28,6 +28,7 @@ import {
     ClipboardList,
 } from 'lucide-react';
 import type { ThemeColors } from './preview-shared';
+import { registerWebsiteClient } from '@/lib/auth-api';
 import {
     tintOf,
     MobileNumberField,
@@ -36,6 +37,7 @@ import {
     PASSWORD_RULES,
     SocialButtons,
     AuthFlowDialog,
+    SUCCESS_COLOR,
     type AuthProvider,
 } from './auth-shared';
 import { useWebsiteLanguage } from '../website-language-provider';
@@ -242,9 +244,52 @@ export function SignupSection({
     const [otp, setOtp] = React.useState('');
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
 
-    // Deliberately inert until the auth endpoints exist — see login-section.
-    const handleSubmit = (event: React.FormEvent) => {
+    // Submission state. Inline rather than a toast: this app mounts no Toaster,
+    // and a signup result is the most important thing on the screen anyway.
+    const [status, setStatus] = React.useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+    const [message, setMessage] = React.useState('');
+
+    /**
+     * Creates a real client record. The OTP boxes above are NOT part of this —
+     * no SMS provider is configured, so the mobile number is stored unverified.
+     */
+    const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
+        if (status === 'submitting') return;
+
+        // The server validates all of this again; this is only to save a round
+        // trip and point at the offending field.
+        if (!fullName.trim() || !email.trim()) {
+            setStatus('error');
+            setMessage('Please fill all mandatory fields.');
+            return;
+        }
+        if (!PASSWORD_RULES.every((rule) => rule.test(password))) {
+            setStatus('error');
+            setMessage('Please choose a password that meets all three rules.');
+            return;
+        }
+
+        setStatus('submitting');
+        setMessage('');
+
+        const result = await registerWebsiteClient({
+            name: fullName.trim(),
+            email: email.trim(),
+            dial_code: dialCode,
+            mobile: mobile || undefined,
+            password,
+        });
+
+        setStatus(result.ok ? 'success' : 'error');
+        setMessage(result.message);
+
+        if (result.ok) {
+            // Clear the credentials so a shared screen does not keep them.
+            setPassword('');
+            setOtp('');
+            setOtpSent(false);
+        }
     };
 
     // `/login` exists; the legal pages do not have routes here yet, so those
@@ -464,13 +509,34 @@ export function SignupSection({
 
                                 <button
                                     type="submit"
-                                    disabled={!PASSWORD_RULES.every((rule) => rule.test(password))}
+                                    disabled={
+                                        status === 'submitting' ||
+                                        !PASSWORD_RULES.every((rule) => rule.test(password))
+                                    }
                                     className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
                                     style={{ backgroundColor: primary }}
                                 >
-                                    {t('signup.submit', 'Create Account')}
-                                    <ArrowRight className="h-4 w-4" />
+                                    {status === 'submitting'
+                                        ? t('signup.submitting', 'Creating your account…')
+                                        : t('signup.submit', 'Create Account')}
+                                    {status === 'submitting' ? null : <ArrowRight className="h-4 w-4" />}
                                 </button>
+
+                                {/* Result. `role="status"` so a screen reader announces
+                                    it without the focus being moved. */}
+                                {message ? (
+                                    <p
+                                        role="status"
+                                        className="break-words rounded-lg px-3 py-2 text-center text-[12.5px] font-semibold"
+                                        style={
+                                            status === 'success'
+                                                ? { backgroundColor: `${SUCCESS_COLOR}14`, color: SUCCESS_COLOR }
+                                                : { backgroundColor: tint(10), color: primary }
+                                        }
+                                    >
+                                        {message}
+                                    </p>
+                                ) : null}
                             </form>
 
                             {/* Divider */}

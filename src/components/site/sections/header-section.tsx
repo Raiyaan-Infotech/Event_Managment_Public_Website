@@ -82,7 +82,7 @@ function HeaderSectionBase({ theme, header, navItems, socialLinks, companyName, 
           </div>
           {header.showSocialIcons && socialLinks.length ? (
             <div className="flex shrink-0 items-center gap-3">
-              {socialLinks.map((link: any) => {
+              {socialLinks.map((link: any, index: number) => {
                 const rawIcon = String(link?.iconName || link?.icon_name || link?.icon || link?.icon_key || 'simple-icons:linktree').trim().toLowerCase();
                 const iconKey = rawIcon.includes(':') ? rawIcon : `simple-icons:${rawIcon}`;
                 const href = String(link?.href || link?.url || '#');
@@ -90,7 +90,7 @@ function HeaderSectionBase({ theme, header, navItems, socialLinks, companyName, 
                 const color = String(link?.color || link?.icon_color || '#FFFFFF');
                 return (
                   <a
-                    key={`${label}-${href}`}
+                    key={`${index}-${label}-${href}`}
                     href={href}
                     aria-label={label}
                     target="_blank"
@@ -171,8 +171,8 @@ function HeaderSectionBase({ theme, header, navItems, socialLinks, companyName, 
                           {item.label} <ChevronDown className="h-3.5 w-3.5 transition group-hover:rotate-180" />
                         </a>
                         <div className="invisible absolute left-0 top-full z-30 min-w-[200px] -translate-y-1 rounded-xl border border-slate-100 bg-white py-2 opacity-0 shadow-xl transition-all group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
-                          {item.children.map((child) => (
-                            <a key={child.label} href={child.href} onClick={(e) => handleNavClick(e, child)} className="block px-4 py-2 text-[12px] font-semibold text-slate-700 whitespace-nowrap transition hover:bg-slate-50" style={{ color: theme.primaryButton }}>
+                          {item.children.map((child, childIndex) => (
+                            <a key={`${childIndex}-${child.label}`} href={child.href} onClick={(e) => handleNavClick(e, child)} className="block px-4 py-2 text-[12px] font-semibold text-slate-700 whitespace-nowrap transition hover:bg-slate-50" style={{ color: theme.primaryButton }}>
                               {child.label}
                             </a>
                           ))}
@@ -300,8 +300,8 @@ function HeaderSectionBase({ theme, header, navItems, socialLinks, companyName, 
                   <a href={item.href} onClick={(e) => handleNavClick(e, item)} className="rounded px-3 py-2 text-[13px] font-bold hover:bg-slate-100" style={{ color: theme.primaryButton }}>
                     {item.label}
                   </a>
-                  {item.children.map((child) => (
-                    <a key={child.label} href={child.href} onClick={(e) => handleNavClick(e, child)} className="rounded px-3 py-2 pl-8 text-[12px] font-semibold hover:bg-slate-100" style={{ color: theme.primaryButton }}>
+                  {item.children.map((child, childIndex) => (
+                    <a key={`${childIndex}-${child.label}`} href={child.href} onClick={(e) => handleNavClick(e, child)} className="rounded px-3 py-2 pl-8 text-[12px] font-semibold hover:bg-slate-100" style={{ color: theme.primaryButton }}>
                       {child.label}
                     </a>
                   ))}

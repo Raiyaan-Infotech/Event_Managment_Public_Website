@@ -81,12 +81,12 @@ function FooterSectionBase({ footer, socialLinks, theme, onNavigate }: { footer:
 
           {footer.showSocialLinks && socialLinks && socialLinks.length > 0 ? (
             <div className="flex items-center gap-2 pt-1">
-              {socialLinks.map((link: any) => {
+              {socialLinks.map((link: any, index: number) => {
                 const raw = String(link.iconName || link.icon_name || link.icon || link.icon_key || 'simple-icons:linktree').trim().toLowerCase();
                 const iconKey = raw.includes(':') ? raw : `simple-icons:${raw}`;
                 return (
                   <a
-                    key={link.label || iconKey}
+                    key={`${index}-${link.label || iconKey}`}
                     href={link.href || '#'}
                     aria-label={link.label || 'Social'}
                     target="_blank"
@@ -106,8 +106,8 @@ function FooterSectionBase({ footer, socialLinks, theme, onNavigate }: { footer:
           <div>
             <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-900">{footer.topListHeading || t('footer.quick_links', 'Quick Links')}</h3>
             <ul className="mt-4 space-y-2.5 text-[12.5px] font-medium text-slate-600">
-              {quickLinks.map((link) => (
-                <li key={`${link.label}-${link.href}`}>
+              {quickLinks.map((link, index) => (
+                <li key={`${index}-${link.label}-${link.href}`}>
                   <a
                     href={link.href}
                     onClick={(e) => handleLink(e, link.href)}
@@ -128,8 +128,8 @@ function FooterSectionBase({ footer, socialLinks, theme, onNavigate }: { footer:
           <div>
             <h3 className="text-[13px] font-bold uppercase tracking-wider text-slate-900">{(footer as any).topListHeading2 || t('footer.company', 'Company')}</h3>
             <ul className="mt-4 space-y-2.5 text-[12.5px] font-medium text-slate-600">
-              {quickLinks2.map((link: any) => (
-                <li key={`${link.label}-${link.href}`}>
+              {quickLinks2.map((link: any, index: number) => (
+                <li key={`${index}-${link.label}-${link.href}`}>
                   <a
                     href={link.href}
                     onClick={(e) => handleLink(e, link.href)}

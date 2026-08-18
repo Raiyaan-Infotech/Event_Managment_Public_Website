@@ -39,6 +39,7 @@ import {
     SocialButtons,
     startSocialAuth,
     useSocialAuthResult,
+    MobileVerifyDialog,
     SUCCESS_COLOR,
     type AuthProvider,
 } from './auth-shared';
@@ -246,8 +247,9 @@ export function SignupSection({
     const [otp, setOtp] = React.useState('');
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
 
-    // Shows the result of a provider round trip, which comes back in the URL.
-    useSocialAuthResult();
+    // Shows the result of a provider round trip, which comes back in the URL,
+    // and hands back a token when the account still needs a phone number.
+    const { mobileToken, clearMobileToken } = useSocialAuthResult();
 
     // Submission state. Errors stay inline next to the form, where the offending
     // field is; success is a toast, because the component navigates to /login on
@@ -608,6 +610,16 @@ export function SignupSection({
                 </div>
             </div>
 
+
+            {/* Only after a provider sign-in, and only when the account has no
+                number yet — a provider never tells us one. */}
+            {mobileToken && (
+                <MobileVerifyDialog
+                    token={mobileToken}
+                    primary={primary}
+                    onDone={clearMobileToken}
+                />
+            )}
         </section>
     );
 }

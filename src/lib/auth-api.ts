@@ -64,6 +64,13 @@ export async function registerWebsiteClient(payload: RegisterPayload): Promise<R
 export interface LoginPayload {
     email: string;
     password: string;
+    /**
+     * Optional, and verified server-side when present: it must match the number
+     * stored on the account. Left out entirely when the field is blank, which
+     * means "not offered" rather than "must be empty".
+     */
+    dial_code?: string;
+    mobile?: string;
 }
 
 /**

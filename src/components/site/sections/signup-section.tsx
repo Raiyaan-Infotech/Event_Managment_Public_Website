@@ -37,7 +37,8 @@ import {
     PasswordRules,
     PASSWORD_RULES,
     SocialButtons,
-    AuthFlowDialog,
+    startSocialAuth,
+    useSocialAuthResult,
     SUCCESS_COLOR,
     type AuthProvider,
 } from './auth-shared';
@@ -244,6 +245,9 @@ export function SignupSection({
     const [otpSent, setOtpSent] = React.useState(false);
     const [otp, setOtp] = React.useState('');
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
+
+    // Shows the result of a provider round trip, which comes back in the URL.
+    useSocialAuthResult();
 
     // Submission state. Errors stay inline next to the form, where the offending
     // field is; success is a toast, because the component navigates to /login on
@@ -561,7 +565,10 @@ export function SignupSection({
                             <SocialButtons
                                 primaryText={theme.primaryText}
                                 labelFor={(key, fallback) => t(`signup.continue_with_${key}`, fallback)}
-                                onSelect={setActiveProvider}
+                                onSelect={(provider) => {
+                                    setActiveProvider(provider);
+                                    startSocialAuth(provider);
+                                }}
                             />
 
                             {/* Legal */}
@@ -601,14 +608,6 @@ export function SignupSection({
                 </div>
             </div>
 
-            {/* Provider flow: account choice → validating → mobile → OTP → done. */}
-            <AuthFlowDialog
-                open={activeProvider !== null}
-                provider={activeProvider ?? 'google'}
-                primary={primary}
-                companyName={company}
-                onClose={() => setActiveProvider(null)}
-            />
         </section>
     );
 }

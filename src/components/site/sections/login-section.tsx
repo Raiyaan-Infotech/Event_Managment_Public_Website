@@ -43,7 +43,8 @@ import {
     MobileNumberField,
     OtpInput,
     SocialButtons,
-    AuthFlowDialog,
+    startSocialAuth,
+    useSocialAuthResult,
     type AuthProvider,
 } from './auth-shared';
 import { useWebsiteLanguage } from '../website-language-provider';
@@ -264,9 +265,12 @@ export function LoginSection({
     const [mobile, setMobile] = React.useState('');
     const [otpSent, setOtpSent] = React.useState(false);
     const [otp, setOtp] = React.useState('');
-    // Which provider flow is open, or null. Opening it is the only thing the
-    // social buttons do — there is no OAuth round trip behind them yet.
+    // Which provider we are handing the browser off to, or null. Set purely so
+    // the buttons can disable during the moment before the page navigates away.
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
+
+    // Shows the result of a provider round trip, which comes back in the URL.
+    useSocialAuthResult();
 
     // Disables the button while in flight so a double click cannot double post.
     const [submitting, setSubmitting] = React.useState(false);
@@ -284,7 +288,14 @@ export function LoginSection({
         }
 
         setSubmitting(true);
-        const result = await loginWebsiteClient({ email: email.trim(), password });
+        const result = await loginWebsiteClient({
+            email: email.trim(),
+            password,
+            dial_code: dialCode,
+            // Only sent when filled in — the server treats a blank as "not
+            // offered" and checks it against the account when it is present.
+            mobile: mobile || undefined,
+        });
         setSubmitting(false);
 
         if (result.ok) {
@@ -570,7 +581,10 @@ export function LoginSection({
                             <SocialButtons
                                 primaryText={theme.primaryText}
                                 labelFor={(key, fallback) => t(`login.continue_with_${key}`, fallback)}
-                                onSelect={setActiveProvider}
+                                onSelect={(provider) => {
+                                    setActiveProvider(provider);
+                                    startSocialAuth(provider);
+                                }}
                             />
 
                             {/* Privacy note */}
@@ -592,14 +606,6 @@ export function LoginSection({
                 </div>
             </div>
 
-            {/* Provider flow: account choice → validating → mobile → OTP → done. */}
-            <AuthFlowDialog
-                open={activeProvider !== null}
-                provider={activeProvider ?? 'google'}
-                primary={primary}
-                companyName={company}
-                onClose={() => setActiveProvider(null)}
-            />
         </section>
     );
 }

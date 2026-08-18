@@ -28,6 +28,7 @@ import {
     ClipboardList,
 } from 'lucide-react';
 import type { ThemeColors } from './preview-shared';
+import { toast } from 'sonner';
 import { registerWebsiteClient } from '@/lib/auth-api';
 import {
     tintOf,
@@ -244,8 +245,9 @@ export function SignupSection({
     const [otp, setOtp] = React.useState('');
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
 
-    // Submission state. Inline rather than a toast: this app mounts no Toaster,
-    // and a signup result is the most important thing on the screen anyway.
+    // Submission state. Errors stay inline next to the form, where the offending
+    // field is; success is a toast, because the component navigates to /login on
+    // success and an inline message would unmount with it.
     const [status, setStatus] = React.useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
     const [message, setMessage] = React.useState('');
 
@@ -289,6 +291,13 @@ export function SignupSection({
             setPassword('');
             setOtp('');
             setOtpSent(false);
+
+            // Signing up is not signing in — the account exists but no session
+            // was issued, so the next step is the login screen. It confirms
+            // there rather than here, because this component unmounts on the
+            // navigation and would take an inline message with it.
+            toast.success(result.message || 'Account created successfully');
+            onNavigate?.('/login');
         }
     };
 

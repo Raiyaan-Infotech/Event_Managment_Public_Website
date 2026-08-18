@@ -60,3 +60,43 @@ export async function registerWebsiteClient(payload: RegisterPayload): Promise<R
         return { ok: false, message: 'Could not reach the server. Please try again.' };
     }
 }
+
+export interface LoginPayload {
+    email: string;
+    password: string;
+}
+
+/**
+ * Verifies a website client's credentials.
+ *
+ * No session comes back and none is stored: these accounts have no portal to
+ * land in yet, so a successful call only means "those credentials were right".
+ * When a client area exists, this is where the returned token would be kept.
+ */
+export async function loginWebsiteClient(payload: LoginPayload): Promise<RegisterResult> {
+    try {
+        const response = await fetch(`${API_BASE}/public/website-clients/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+
+        let body: any = null;
+        try {
+            body = await response.json();
+        } catch {
+            body = null;
+        }
+
+        if (!response.ok || !body?.success) {
+            return {
+                ok: false,
+                message: body?.message || 'Invalid email or password.',
+            };
+        }
+
+        return { ok: true, message: body.message || 'Login successful' };
+    } catch {
+        return { ok: false, message: 'Could not reach the server. Please try again.' };
+    }
+}

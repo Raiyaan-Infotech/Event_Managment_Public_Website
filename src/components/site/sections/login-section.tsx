@@ -18,10 +18,12 @@
  * values with `color-mix` rather than being written out as hex. A tenant whose
  * brand is not pink does not get a pink login screen.
  *
- * ── Not wired to a backend yet ──────────────────────────────────────────────
- * `onSubmit` and the three social buttons are intentionally inert. The auth
- * endpoints are separate work; nothing here fakes a success state, because a
- * login form that appears to work is worse than one that visibly does nothing.
+ * ── What submitting actually does ───────────────────────────────────────────
+ * The email/password form posts to `POST /public/website-clients/login`, which
+ * verifies the credentials and returns NO token — these accounts still have no
+ * portal to land in. A correct login therefore shows a toast and stops there;
+ * it deliberately does not redirect anywhere, because there is nowhere to go.
+ * The three social buttons remain inert: no OAuth round trip exists behind them.
  *
  * ── Where the copy will come from ───────────────────────────────────────────
  * The left panel's title/subtitle/features/testimonial are PROPS with shipped
@@ -32,6 +34,8 @@
  */
 
 import * as React from 'react';
+import { toast } from 'sonner';
+import { loginWebsiteClient } from '@/lib/auth-api';
 import { Mail, Lock, Eye, EyeOff, Send, ShieldCheck, Star, Sparkles, Users, LineChart } from 'lucide-react';
 import type { ThemeColors } from './preview-shared';
 import {
@@ -264,11 +268,32 @@ export function LoginSection({
     // social buttons do — there is no OAuth round trip behind them yet.
     const [activeProvider, setActiveProvider] = React.useState<AuthProvider | null>(null);
 
-    // Deliberately inert until the auth endpoints exist. Swallowing the submit
-    // is the honest behaviour — the alternative is a form that looks like it
-    // signed you in and did not.
-    const handleSubmit = (event: React.FormEvent) => {
+    // Disables the button while in flight so a double click cannot double post.
+    const [submitting, setSubmitting] = React.useState(false);
+
+    // Verifies the credentials and stops there. There is no session to store and
+    // nowhere to redirect to, so the toast IS the outcome — see the header note.
+    const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
+        if (submitting) return;
+
+        // The server checks this again; this only saves a round trip.
+        if (!email.trim() || !password) {
+            toast.error('Please enter your email and password.');
+            return;
+        }
+
+        setSubmitting(true);
+        const result = await loginWebsiteClient({ email: email.trim(), password });
+        setSubmitting(false);
+
+        if (result.ok) {
+            toast.success(result.message || 'Login successful');
+            // Clear the password so a shared screen does not keep it.
+            setPassword('');
+        } else {
+            toast.error(result.message);
+        }
     };
 
     // `/signup` is a real route; `/forgot-password` is not built yet, so that
@@ -520,11 +545,14 @@ export function LoginSection({
 
                                 <button
                                     type="submit"
-                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99]"
+                                    disabled={submitting}
+                                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
                                     style={{ backgroundColor: primary }}
                                 >
                                     <Send className="h-4 w-4" />
-                                    {t('login.submit', 'Log In')}
+                                    {submitting
+                                        ? t('login.submitting', 'Logging in...')
+                                        : t('login.submit', 'Log In')}
                                 </button>
                             </form>
 

@@ -74,17 +74,24 @@ export interface LoginPayload {
 }
 
 /**
- * Verifies a website client's credentials.
+ * Signs a website client in and STORES THE SESSION.
  *
- * No session comes back and none is stored: these accounts have no portal to
- * land in yet, so a successful call only means "those credentials were right".
- * When a client area exists, this is where the returned token would be kept.
+ * `credentials: 'include'` is required, not optional: the backend answers with
+ * httpOnly Set-Cookie headers, and on a cross-origin fetch the browser
+ * silently discards them without it. The request still returns 200, so the
+ * omission looks like a working login right up until the portal says "not
+ * signed in" — which is exactly how it failed before.
+ *
+ * The backend also has to answer with `Access-Control-Allow-Credentials: true`
+ * and a specific origin (never `*`); this path is carved out of the wildcard
+ * public-site CORS for that reason.
  */
 export async function loginWebsiteClient(payload: LoginPayload): Promise<RegisterResult> {
     try {
         const response = await fetch(`${API_BASE}/public/website-clients/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify(payload),
         });
 

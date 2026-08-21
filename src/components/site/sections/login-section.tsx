@@ -47,63 +47,10 @@ import {
     useSocialAuthResult,
     MobileVerifyDialog,
     type AuthProvider,
+    resolveDestination,
+    CLIENT_PORTAL_ENV,
 } from './auth-shared';
 import { useWebsiteLanguage } from '../website-language-provider';
-
-/**
- * Where a signed-in client lands. Separate app on its own origin, so this is a
- * full page navigation rather than a router push.
- *
- * ── THIS USED TO DEFAULT TO localhost:3005, AND THAT SHIPPED ─────────────────
- * `NEXT_PUBLIC_CLIENT_PORTAL_URL` was never set on the live deployment and was
- * not listed in `.env.example`, so the production build inlined the local-dev
- * literal: a successful login on the real site sent every visitor to
- * `http://localhost:3005/dashboard`. It fails only on the visitor's machine,
- * after a login that reported success, which is why it survived so long.
- *
- * There is now NO fallback of any kind. A hardcoded URL is right on the day it
- * is written and wrong the moment a domain changes — silently, because a wrong
- * redirect still looks like a working one. Unset means unset, and the code
- * below says so out loud instead of guessing.
- */
-const CLIENT_PORTAL_URL = (process.env.NEXT_PUBLIC_CLIENT_PORTAL_URL || '').trim();
-
-/** Named in the error message, so a misconfiguration is a two-minute fix. */
-const CLIENT_PORTAL_ENV = 'NEXT_PUBLIC_CLIENT_PORTAL_URL';
-
-/** Only an absolute http(s) URL is usable; a bare host would resolve here. */
-const portalConfigured = /^https?:\/\//i.test(CLIENT_PORTAL_URL);
-
-/**
- * Honour `?next=` when the portal sent the visitor here, so they land back on
- * the page they wanted rather than the dashboard root.
- *
- * ── VALIDATED, BECAUSE THIS IS AN OPEN REDIRECT OTHERWISE ────────────────────
- * `next` arrives in the URL, so anyone can put anything in it. Following it
- * blindly turns this login page into a redirector to any site on the internet —
- * and one that fires immediately AFTER a successful sign-in, which is exactly
- * when a visitor is least likely to check the address bar.
- *
- * Only a URL on the portal's own origin is accepted; anything else falls back
- * to the portal root. Returns null when no portal is configured at all.
- */
-function resolveDestination(): string | null {
-    if (!portalConfigured) return null;
-    if (typeof window === 'undefined') return CLIENT_PORTAL_URL;
-
-    const requested = new URLSearchParams(window.location.search).get('next');
-    if (!requested) return CLIENT_PORTAL_URL;
-
-    try {
-        const target = new URL(requested);
-        const portal = new URL(CLIENT_PORTAL_URL);
-        if (target.origin === portal.origin) return target.toString();
-    } catch {
-        // Not a parseable absolute URL — ignore it.
-    }
-    return CLIENT_PORTAL_URL;
-}
-
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

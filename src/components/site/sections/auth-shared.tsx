@@ -683,6 +683,61 @@ export function startSocialAuth(provider: AuthProvider) {
 }
 
 /**
+ * Where a signed-in client lands. Separate app on its own origin, so this is a
+ * full page navigation rather than a router push.
+ *
+ * ── THIS USED TO DEFAULT TO localhost:3005, AND THAT SHIPPED ─────────────────
+ * `NEXT_PUBLIC_CLIENT_PORTAL_URL` was never set on the live deployment and was
+ * not listed in `.env.example`, so the production build inlined the local-dev
+ * literal: a successful login on the real site sent every visitor to
+ * `http://localhost:3005/dashboard`. It fails only on the visitor's machine,
+ * after a login that reported success, which is why it survived so long.
+ *
+ * There is now NO fallback of any kind. A hardcoded URL is right on the day it
+ * is written and wrong the moment a domain changes — silently, because a wrong
+ * redirect still looks like a working one. Unset means unset, and the code
+ * below says so out loud instead of guessing.
+ */
+export const CLIENT_PORTAL_URL = (process.env.NEXT_PUBLIC_CLIENT_PORTAL_URL || '').trim();
+
+/** Named in the error message, so a misconfiguration is a two-minute fix. */
+export const CLIENT_PORTAL_ENV = 'NEXT_PUBLIC_CLIENT_PORTAL_URL';
+
+/** Only an absolute http(s) URL is usable; a bare host would resolve here. */
+const portalConfigured = /^https?:\/\//i.test(CLIENT_PORTAL_URL);
+
+/**
+ * Honour `?next=` when the portal sent the visitor here, so they land back on
+ * the page they wanted rather than the dashboard root.
+ *
+ * ── VALIDATED, BECAUSE THIS IS AN OPEN REDIRECT OTHERWISE ────────────────────
+ * `next` arrives in the URL, so anyone can put anything in it. Following it
+ * blindly turns this login page into a redirector to any site on the internet —
+ * and one that fires immediately AFTER a successful sign-in, which is exactly
+ * when a visitor is least likely to check the address bar.
+ *
+ * Only a URL on the portal's own origin is accepted; anything else falls back
+ * to the portal root. Returns null when no portal is configured at all.
+ */
+export function resolveDestination(): string | null {
+    if (!portalConfigured) return null;
+    if (typeof window === 'undefined') return CLIENT_PORTAL_URL;
+
+    const requested = new URLSearchParams(window.location.search).get('next');
+    if (!requested) return CLIENT_PORTAL_URL;
+
+    try {
+        const target = new URL(requested);
+        const portal = new URL(CLIENT_PORTAL_URL);
+        if (target.origin === portal.origin) return target.toString();
+    } catch {
+        // Not a parseable absolute URL — ignore it.
+    }
+    return CLIENT_PORTAL_URL;
+}
+
+
+/**
  * Raises a toast on the next tick rather than immediately.
  *
  * React runs effects bottom-up, so a section's mount effect fires BEFORE the
@@ -730,10 +785,38 @@ export function useSocialAuthResult() {
                     : `Login successful${greeting}`;
 
             if (token) {
+                // The account still needs a phone number. Stay put — the mobile
+                // step runs here, and it redirects once that is done.
                 pendingSuccess.current = message;
                 setMobileToken(token);
             } else {
                 announce(() => toast.success(message));
+
+                /**
+                 * ── THIS WAS MISSING, AND IT IS THE WHOLE BUG ────────────────
+                 * A social sign-in came back to /login?auth=success, raised
+                 * this toast, tidied the URL and STOPPED. The visitor was
+                 * signed in — cookie set, session valid — and left staring at
+                 * the login form, which reads as the login having failed.
+                 *
+                 * The password path has always redirected (see handleSubmit in
+                 * login-section). Only the OAuth return did not, because it is
+                 * handled here, in a hook shared with signup, and nothing here
+                 * knew where the portal was.
+                 *
+                 * Deferred a tick so the toast is actually painted before the
+                 * navigation tears the page down — otherwise the visitor sees
+                 * no confirmation at all, just a jump.
+                 */
+                const destination = resolveDestination();
+                if (destination) {
+                    window.setTimeout(() => window.location.assign(destination), 600);
+                } else {
+                    console.error(
+                        `[auth] ${CLIENT_PORTAL_ENV} is not set, so a signed-in client cannot be ` +
+                        'sent to the portal. Set it and redeploy.'
+                    );
+                }
             }
         } else if (outcome === 'cancelled') {
             announce(() => toast.message('Sign-in was cancelled.'));

@@ -267,7 +267,7 @@ export function SignupSection({
 
         // The server validates all of this again; this is only to save a round
         // trip and point at the offending field.
-        if (!fullName.trim() || !email.trim()) {
+        if (!fullName.trim() || !email.trim() || !mobile.trim()) {
             setStatus('error');
             setMessage('Please fill all mandatory fields.');
             return;
@@ -285,7 +285,7 @@ export function SignupSection({
             name: fullName.trim(),
             email: email.trim(),
             dial_code: dialCode,
-            mobile: mobile || undefined,
+            mobile: mobile.trim(),
             password,
         });
 
@@ -407,7 +407,7 @@ export function SignupSection({
                                         className="mb-1.5 block text-[12.5px] font-bold"
                                         style={{ color: theme.primaryText }}
                                     >
-                                        {t('signup.name_label', 'Full Name')}
+                                        {t('signup.name_label', 'Full Name')} <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -431,7 +431,7 @@ export function SignupSection({
                                         className="mb-1.5 block text-[12.5px] font-bold"
                                         style={{ color: theme.primaryText }}
                                     >
-                                        {t('signup.email_label', 'Email Address')}
+                                        {t('signup.email_label', 'Email Address')} <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -455,7 +455,7 @@ export function SignupSection({
                                         className="mb-1.5 block text-[12.5px] font-bold"
                                         style={{ color: theme.primaryText }}
                                     >
-                                        {t('signup.password_label', 'Password')}
+                                        {t('signup.password_label', 'Password')} <span className="text-rose-500">*</span>
                                     </label>
                                     {/* The eye toggle is positioned against THIS wrapper only —
                                         the rules list below sits outside it, or the toggle would
@@ -496,6 +496,7 @@ export function SignupSection({
                                     onChange={setMobile}
                                     dialCode={dialCode}
                                     onDialCodeChange={setDialCode}
+                                    required
                                 />
 
                                 {otpSent ? (

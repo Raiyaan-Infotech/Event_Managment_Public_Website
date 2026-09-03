@@ -35,8 +35,10 @@
 
 import * as React from 'react';
 import { toast } from 'sonner';
-import { loginWebsiteClient } from '@/lib/auth-api';
-import { Mail, Lock, Eye, EyeOff, Send, ShieldCheck, Star, Sparkles, Users, LineChart } from 'lucide-react';
+import { loginWebsiteClient, verifyTwoFactorLogin } from '@/lib/auth-api';
+import {
+    Mail, Lock, Eye, EyeOff, Send, ShieldCheck, Star, Sparkles, Users, LineChart, ArrowLeft, KeyRound,
+} from 'lucide-react';
 import type { ThemeColors } from './preview-shared';
 import {
     tintOf,
@@ -245,6 +247,95 @@ function InvitationArtwork({ theme }: { theme: ThemeColors }) {
     );
 }
 
+// ── Two-factor challenge ─────────────────────────────────────────────────────
+
+/**
+ * Step 2 of a 2FA-gated login — replaces the password form INSIDE the same
+ * card, rather than navigating to a separate page. The password was already
+ * checked; this is the second half of the one sign-in attempt, not a new one.
+ *
+ * ⚠ There is no "resend" and no alternate delivery here, unlike the mobile OTP
+ * block on the password step. A TOTP code needs no sending — it is already
+ * ticking over on the visitor's own phone — so a resend button would be
+ * decoration with nothing behind it.
+ */
+function TwoFactorStep({
+    theme, primary, tint, code, onCode, trustDevice, onTrustDevice, verifying, onSubmit, onBack,
+}: {
+    theme: ThemeColors;
+    primary: string;
+    tint: (percent: number) => string;
+    code: string;
+    onCode: (value: string) => void;
+    trustDevice: boolean;
+    onTrustDevice: (value: boolean) => void;
+    verifying: boolean;
+    onSubmit: (event: React.FormEvent) => void;
+    onBack: () => void;
+}) {
+    return (
+        <>
+            <button
+                type="button"
+                onClick={onBack}
+                className="mb-4 inline-flex items-center gap-1.5 text-[12px] font-semibold hover:underline"
+                style={{ color: theme.secondaryText }}
+            >
+                <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+                <span
+                    className="mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+                    style={{ backgroundColor: tint(14) }}
+                >
+                    <ShieldCheck className="h-6 w-6" style={{ color: primary }} />
+                </span>
+                <h2 className="break-words text-[21px] font-black tracking-tight" style={{ color: theme.primaryText }}>
+                    Enter your verification code
+                </h2>
+                <p className="mt-1.5 max-w-[320px] break-words text-[12.5px]" style={{ color: theme.secondaryText }}>
+                    Open your authenticator app and enter the 6-digit code, or use a backup code.
+                </p>
+            </div>
+
+            <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-4">
+                <OtpInput primary={primary} value={code} onChange={onCode} />
+
+                <label className="mx-auto flex max-w-[320px] items-start gap-2.5 text-left">
+                    <input
+                        type="checkbox"
+                        checked={trustDevice}
+                        onChange={(event) => onTrustDevice(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300"
+                        style={{ accentColor: primary }}
+                    />
+                    <span className="text-[12px]" style={{ color: theme.secondaryText }}>
+                        <span className="font-semibold" style={{ color: theme.primaryText }}>
+                            Trust this device for 30 days.
+                        </span>{' '}
+                        This browser will not ask for a code again until then.
+                    </span>
+                </label>
+
+                <button
+                    type="submit"
+                    disabled={verifying || code.trim().length < 6}
+                    className="flex h-11 w-full items-center justify-center gap-2 rounded-lg text-[13.5px] font-bold text-white shadow-sm transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
+                    style={{ backgroundColor: primary }}
+                >
+                    {verifying ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                    ) : (
+                        <KeyRound className="h-4 w-4" />
+                    )}
+                    {verifying ? 'Verifying…' : 'Verify & Continue'}
+                </button>
+            </form>
+        </>
+    );
+}
+
 // ── Section ──────────────────────────────────────────────────────────────────
 
 export function LoginSection({
@@ -282,6 +373,20 @@ export function LoginSection({
     // Held true across the navigation so the overlay does not flash off.
     const [redirecting, setRedirecting] = React.useState(false);
 
+    // ── 2FA challenge ────────────────────────────────────────────────────────
+    // Set the moment `loginWebsiteClient` answers `requiresTwoFactor` — the
+    // password was right, but no session exists yet. Its presence is what
+    // switches the card from the password form to the code-entry step; there
+    // is deliberately no "step" enum, because this one flag already says which
+    // screen to show.
+    const [twoFaChallenge, setTwoFaChallenge] = React.useState<string | null>(null);
+    const [twoFaCode, setTwoFaCode] = React.useState('');
+    // Opt-in, not opt-out: this is a 30-day standing exemption from the code
+    // that survives logout, so it should be something somebody notices
+    // choosing — not something that happens unless they notice and uncheck it.
+    const [trustDevice, setTrustDevice] = React.useState(false);
+    const [verifyingTwoFa, setVerifyingTwoFa] = React.useState(false);
+
     // Verifies the credentials and stops there. There is no session to store and
     // nowhere to redirect to, so the toast IS the outcome — see the header note.
     const handleSubmit = async (event: React.FormEvent) => {
@@ -315,39 +420,87 @@ export function LoginSection({
         });
         setSubmitting(false);
 
-        if (result.ok) {
-            toast.success(result.message || 'Login successful');
-            // Clear the password so a shared screen does not keep it.
-            setPassword('');
-
-            // The session cookie is set by now, so hand the visitor to the
-            // portal. A full page assignment, not a router push: the portal is
-            // a separate app on its own origin.
-            //
-            // `redirecting` stays true through the navigation so the overlay
-            // does not flash away before the browser actually leaves.
-            const destination = resolveDestination();
-            if (!destination) {
-                // Signed in, but this deployment does not know where the portal
-                // is. Saying so beats navigating to a guess: the visitor's
-                // session is valid, and whoever runs the site can fix it from
-                // this message alone.
-                console.error(
-                    `[login] ${CLIENT_PORTAL_ENV} is not set, so there is nowhere to send ` +
-                    'the signed-in client. Set it to the client portal URL and redeploy.'
-                );
-                toast.error(
-                    'Signed in, but the client portal address is not configured on this site.'
-                );
-                return;
-            }
-
-            setRedirecting(true);
-            window.location.assign(destination);
-            return;
-        } else {
+        if (!result.ok) {
             toast.error(result.message);
+            return;
         }
+
+        // The password was right, but a second factor is still owed. NO
+        // session exists yet — switching to the code step is the only thing
+        // this branch may do; redirecting here would mean a stolen password
+        // alone was enough to reach the portal.
+        if (result.requiresTwoFactor && result.challengeToken) {
+            setTwoFaChallenge(result.challengeToken);
+            setPassword('');
+            return;
+        }
+
+        toast.success(result.message || 'Login successful');
+        // Clear the password so a shared screen does not keep it.
+        setPassword('');
+        redirectToPortal();
+    };
+
+    /**
+     * Where a successful login (with or without a 2FA step) sends the
+     * visitor. Pulled out because both `handleSubmit` (no 2FA) and
+     * `handleVerifyTwoFa` (2FA) end the same way — hand off to the portal — and
+     * writing it twice is how the two would eventually disagree about the
+     * "portal not configured" message or the overlay behaviour.
+     */
+    const redirectToPortal = () => {
+        // The session cookie is set by now, so hand the visitor to the
+        // portal. A full page assignment, not a router push: the portal is
+        // a separate app on its own origin.
+        //
+        // `redirecting` stays true through the navigation so the overlay
+        // does not flash away before the browser actually leaves.
+        const destination = resolveDestination();
+        if (!destination) {
+            // Signed in, but this deployment does not know where the portal
+            // is. Saying so beats navigating to a guess: the visitor's
+            // session is valid, and whoever runs the site can fix it from
+            // this message alone.
+            console.error(
+                `[login] ${CLIENT_PORTAL_ENV} is not set, so there is nowhere to send ` +
+                'the signed-in client. Set it to the client portal URL and redeploy.'
+            );
+            toast.error(
+                'Signed in, but the client portal address is not configured on this site.'
+            );
+            return;
+        }
+
+        setRedirecting(true);
+        window.location.assign(destination);
+    };
+
+    /** Step 2: the code (or a backup code) exchanged for the real session. */
+    const handleVerifyTwoFa = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (verifyingTwoFa || !twoFaChallenge) return;
+
+        if (twoFaCode.trim().length < 6) {
+            toast.error('Enter the 6-digit code from your authenticator app.');
+            return;
+        }
+
+        setVerifyingTwoFa(true);
+        const result = await verifyTwoFactorLogin({
+            challengeToken: twoFaChallenge,
+            code: twoFaCode.trim(),
+            trustDevice,
+        });
+        setVerifyingTwoFa(false);
+
+        if (!result.ok) {
+            toast.error(result.message);
+            setTwoFaCode('');
+            return;
+        }
+
+        toast.success(result.message || 'Login successful');
+        redirectToPortal();
     };
 
     // `/signup` is a real route; `/forgot-password` is not built yet, so that
@@ -471,6 +624,21 @@ export function LoginSection({
                     {/* ── Right: the form ─────────────────────────────────────────── */}
                     <div className="flex min-w-0 items-center justify-center bg-white px-0 py-2 sm:px-6 lg:py-8">
                         <div className="w-full min-w-0 max-w-[420px] rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+                        {twoFaChallenge ? (
+                            <TwoFactorStep
+                                theme={theme}
+                                primary={primary}
+                                tint={tint}
+                                code={twoFaCode}
+                                onCode={setTwoFaCode}
+                                trustDevice={trustDevice}
+                                onTrustDevice={setTrustDevice}
+                                verifying={verifyingTwoFa}
+                                onSubmit={handleVerifyTwoFa}
+                                onBack={() => { setTwoFaChallenge(null); setTwoFaCode(''); }}
+                            />
+                        ) : (
+                        <>
                             <h2
                                 className="break-words text-center text-[21px] font-black tracking-tight"
                                 style={{ color: theme.primaryText }}
@@ -497,7 +665,7 @@ export function LoginSection({
                                         className="mb-1.5 block text-[12.5px] font-bold"
                                         style={{ color: theme.primaryText }}
                                     >
-                                        {t('login.email_label', 'Email Address')}
+                                        {t('login.email_label', 'Email Address')} <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -521,7 +689,7 @@ export function LoginSection({
                                         className="mb-1.5 block text-[12.5px] font-bold"
                                         style={{ color: theme.primaryText }}
                                     >
-                                        {t('login.password_label', 'Password')}
+                                        {t('login.password_label', 'Password')} <span className="text-rose-500">*</span>
                                     </label>
                                     {/* The eye toggle is positioned against THIS wrapper only. Anything
                                         else inside it (a hint line) shifts what -translate-y-1/2 centres on. */}
@@ -637,6 +805,8 @@ export function LoginSection({
                                     startSocialAuth(provider);
                                 }}
                             />
+                        </>
+                        )}
 
                             {/* Privacy note */}
                             <div className="mt-6 flex min-w-0 items-start justify-center gap-2.5">
